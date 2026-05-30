@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
             port = await navigator.serial.requestPort();
             await port.open({ baudRate: 115200 });
             
+            // Pico 등 일부 보드는 시리얼 포트 오픈 시 명시적인 DTR/RTS 신호가 필요할 수 있습니다.
+            await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+            
             isConnected = true;
             statusDot.classList.remove('offline');
             statusDot.classList.add('online');
@@ -65,9 +68,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         const data = JSON.parse(line);
                         if (data.roll !== undefined && data.pitch !== undefined) {
                             handleSensorData(data.roll, data.pitch);
+                        } else {
+                            log(`수신됨 (포맷 다름): ${line}`, 'system');
                         }
                     } catch (e) {
-                        // JSON 파싱 에러는 조용히 무시 (노이즈)
+                        // Thonny REPL 메시지나 에러 로그가 들어올 경우 화면에 표시
+                        if (line.includes("Error") || line.includes("Traceback")) {
+                            log(`Pico 에러: ${line}`, 'err');
+                        } else {
+                            log(`수신된 텍스트: ${line}`, 'system');
+                        }
                     }
                 }
             }
