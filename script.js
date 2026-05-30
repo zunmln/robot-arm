@@ -29,11 +29,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSavePos = document.getElementById('btnSavePos');
     const btnPlaySeq = document.getElementById('btnPlaySeq');
     const btnClearSeq = document.getElementById('btnClearSeq');
+    const btnConnectUSB = document.getElementById('btnConnectUSB');
 
     // State
     let isConnected = false;
     let sequence = [];
     let isPlaying = false;
+    
+    // Serial Data
+    let port;
+    let writer;
 
     // --- Logging System ---
     function log(message, type = 'info') {
@@ -45,27 +50,46 @@ document.addEventListener('DOMContentLoaded', () => {
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
     }
 
-    // --- Mock Hardware Connection ---
-    function connectHardware() {
-        log('ESP32 / 컨트롤러 연결을 시도합니다...', 'system');
-        setTimeout(() => {
+    // --- Web Serial API Connection ---
+    btnConnectUSB.addEventListener('click', async () => {
+        try {
+            if (!navigator.serial) {
+                log('Web Serial API 미지원 브라우저입니다. 크롬이나 엣지를 사용해주세요.', 'err');
+                return;
+            }
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 115200 });
+            
+            const textEncoder = new TextEncoderStream();
+            const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+            writer = textEncoder.writable.getWriter();
+            
             isConnected = true;
             statusDot.classList.remove('offline');
             statusDot.classList.add('online');
-            statusText.textContent = '하드웨어 연결됨 (가상 모드)';
-            log('WebSocket 통신 포트 개방 완료. 제어 가능합니다.', 'success');
-        }, 1500);
-    }
+            statusText.textContent = 'Pico (USB) 연결됨';
+            btnConnectUSB.style.display = 'none';
+            log('Pico 하드웨어와 USB 시리얼 통신 연결 완료!', 'success');
+            
+        } catch (err) {
+            log(`USB 연결 실패: ${err.message}`, 'err');
+        }
+    });
 
     // --- Send Command to Hardware ---
-    function sendCommand(joint, value) {
-        if (!isConnected) return;
-        
-        // 실제 하드웨어 통신 시: websocket.send(JSON.stringify({ joint, value }));
-        log(`CMD 송신 > {"cmd":"MOVE", "joint":"${joint}", "val":${value}}`, 'cmd');
-        
-        // 3D 모델 업데이트
+    async function sendCommand(joint, value) {
+        // 3D 모델은 하드웨어 연결과 무관하게 무조건 업데이트
         update3DModel(joint, value);
+
+        if (!isConnected || !writer) return;
+        
+        const payload = JSON.stringify({ joint: joint, val: value }) + '\n';
+        try {
+            await writer.write(payload);
+            log(`CMD 송신 > ${payload.trim()}`, 'cmd');
+        } catch (err) {
+            log(`명령 전송 실패: ${err.message}`, 'err');
+        }
     }
 
     // --- Slider Events ---
@@ -341,6 +365,5 @@ document.addEventListener('DOMContentLoaded', () => {
         update3DModel(key, sliders[key].value);
     });
 
-    // Start
-    connectHardware();
+    log('시스템이 준비되었습니다. 우측 상단의 [USB 연결하기] 버튼을 눌러 Pico를 연결하세요.', 'system');
 });
