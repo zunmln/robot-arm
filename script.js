@@ -46,45 +46,52 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     async function readLoop() {
-        const textDecoder = new TextDecoderStream();
-        const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-        reader = textDecoder.readable.getReader();
-
+        const decoder = new TextDecoder();
         let buffer = '';
 
-        try {
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                
-                buffer += value;
-                let lines = buffer.split('\n');
-                buffer = lines.pop(); // 불완전한 마지막 줄은 버퍼에 남김
-                
-                for (let line of lines) {
-                    line = line.trim();
-                    if (!line) continue;
-                    try {
-                        const data = JSON.parse(line);
-                        if (data.roll !== undefined && data.pitch !== undefined) {
-                            handleSensorData(data.roll, data.pitch);
-                        } else {
-                            log(`수신됨 (포맷 다름): ${line}`, 'system');
-                        }
-                    } catch (e) {
-                        // Thonny REPL 메시지나 에러 로그가 들어올 경우 화면에 표시
-                        if (line.includes("Error") || line.includes("Traceback")) {
-                            log(`Pico 에러: ${line}`, 'err');
-                        } else {
-                            log(`수신된 텍스트: ${line}`, 'system');
+        while (port.readable) {
+            reader = port.readable.getReader();
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        log('포트가 닫혔어!', 'system');
+                        break;
+                    }
+
+                    // 원시 바이트를 텍스트로 직접 변환
+                    const chunk = decoder.decode(value, { stream: true });
+                    buffer += chunk;
+
+                    // 줄바꿈 기준으로 분리
+                    let lines = buffer.split('\n');
+                    buffer = lines.pop(); // 아직 완성되지 않은 마지막 줄은 버퍼에 보관
+
+                    for (let line of lines) {
+                        line = line.trim();
+                        if (!line) continue;
+
+                        try {
+                            const data = JSON.parse(line);
+                            if (data.roll !== undefined && data.pitch !== undefined) {
+                                handleSensorData(data.roll, data.pitch);
+                            } else {
+                                log(`수신됨: ${line}`, 'system');
+                            }
+                        } catch (e) {
+                            if (line.includes("Error") || line.includes("Traceback")) {
+                                log(`Pico 에러: ${line}`, 'err');
+                            } else {
+                                log(`수신: ${line}`, 'system');
+                            }
                         }
                     }
                 }
+            } catch (error) {
+                log(`통신 에러: ${error.message}`, 'err');
+            } finally {
+                reader.releaseLock();
             }
-        } catch (error) {
-            log('통신이 끊겼어 ㅠㅠ', 'err');
-        } finally {
-            reader.releaseLock();
         }
     }
 
