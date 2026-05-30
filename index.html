@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>뽀용뽀용 모션 캡처 로봇 팔</title>
+    <title>Robot Arm Motion Capture</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
@@ -13,43 +14,65 @@
         <!-- 상단 헤더 -->
         <header class="header">
             <div class="header-title">
-                <h1>✨ Bubbly Robot Arm ✨</h1>
-                <p class="subtitle">MPU6050 센서 기반 실시간 모션 캡처</p>
+                <div class="header-icon">🤖</div>
+                <div>
+                    <h1>Robot Arm Motion Capture</h1>
+                    <p class="subtitle">MPU6050 자이로 센서 기반 실시간 제어 시스템</p>
+                </div>
             </div>
             <div class="connection-status">
-                <button class="btn btn-outline" id="btnConnectUSB">USB 연결하기 🔌</button>
-                <span class="status-indicator offline" id="statusDot"></span>
-                <span id="statusText">피코를 연결해 주세요!</span>
+                <button class="btn btn-primary" id="btnConnectUSB">🔌 USB 연결</button>
+                <div class="status-badge offline" id="statusBadge">
+                    <span class="status-indicator offline" id="statusDot"></span>
+                    <span id="statusText">연결 대기</span>
+                </div>
             </div>
         </header>
 
         <main class="main-content">
             <!-- 좌측: 3D 시뮬레이터 -->
-            <section class="panel simulator-panel">
-                <h2>귀여운 로봇 팔 🤖</h2>
-                <div id="canvas-container"></div>
-            </section>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="icon">🎮</span>
+                    <h2>3D 시뮬레이터</h2>
+                </div>
+                <div class="panel-body">
+                    <div id="canvas-container"></div>
+                </div>
+            </div>
 
             <!-- 우측: 센서 데이터 및 콘솔 -->
-            <div class="sensor-panel">
-                <section class="panel">
-                    <h2>센서 데이터 (Sensor) 📡</h2>
-                    <div class="data-box">
-                        <div class="data-title">Roll (좌우 기울기)</div>
-                        <div class="data-value" id="valRoll">0°</div>
+            <div class="right-column">
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="icon">📡</span>
+                        <h2>센서 데이터</h2>
                     </div>
-                    <div class="data-box">
-                        <div class="data-title">Pitch (앞뒤 기울기)</div>
-                        <div class="data-value" id="valPitch">0°</div>
+                    <div class="panel-body">
+                        <div class="data-grid">
+                            <div class="data-card">
+                                <span class="data-label">Roll (좌우)</span>
+                                <span class="data-value" id="valRoll">0°</span>
+                            </div>
+                            <div class="data-card">
+                                <span class="data-label">Pitch (앞뒤)</span>
+                                <span class="data-value" id="valPitch">0°</span>
+                            </div>
+                        </div>
                     </div>
-                </section>
+                </div>
 
-                <section class="panel console-panel">
-                    <h2>메시지 창 💬</h2>
-                    <div class="console-output" id="consoleOutput">
-                        <div class="log system">안녕! 우측 상단 버튼을 눌러 통신을 시작해봐.</div>
+                <div class="panel" style="flex:1;">
+                    <div class="panel-header">
+                        <span class="icon">💬</span>
+                        <h2>콘솔</h2>
                     </div>
-                </section>
+                    <div class="panel-body">
+                        <div class="console-output" id="consoleOutput">
+                            <div class="log system">시스템 준비 완료. USB 연결 버튼을 눌러주세요.</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>

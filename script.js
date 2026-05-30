@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const statusDot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
+    const statusBadge = document.getElementById('statusBadge');
     const consoleOutput = document.getElementById('consoleOutput');
     const btnConnectUSB = document.getElementById('btnConnectUSB');
     
@@ -12,32 +13,40 @@ document.addEventListener('DOMContentLoaded', () => {
     let reader;
 
     function log(message, type = 'info') {
+        const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
         const div = document.createElement('div');
         div.className = `log ${type}`;
-        div.textContent = `> ${message}`;
+        div.textContent = `[${time}] ${message}`;
         consoleOutput.appendChild(div);
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        // 로그가 너무 많아지면 오래된 것 삭제
+        while (consoleOutput.children.length > 200) {
+            consoleOutput.removeChild(consoleOutput.firstChild);
+        }
     }
 
-    // --- Web Serial API Connection (Read mode) ---
+    // --- Web Serial API Connection ---
     btnConnectUSB.addEventListener('click', async () => {
         try {
             if (!navigator.serial) {
-                log('크롬이나 엣지 브라우저를 사용해줘!', 'err');
+                log('Web Serial 미지원 브라우저입니다. Chrome 또는 Edge를 사용해주세요.', 'err');
                 return;
             }
             port = await navigator.serial.requestPort();
             await port.open({ baudRate: 115200 });
             
-            // Pico 등 일부 보드는 시리얼 포트 오픈 시 명시적인 DTR/RTS 신호가 필요할 수 있습니다.
-            await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+            // ⚠️ DTR/RTS 신호를 보내지 않습니다!
+            // Pico MicroPython은 DTR 신호를 받으면 소프트 리셋되어
+            // "The device has been lost" 에러가 발생합니다.
             
             isConnected = true;
             statusDot.classList.remove('offline');
             statusDot.classList.add('online');
-            statusText.textContent = 'Pico 통신 중... ✨';
+            statusBadge.classList.remove('offline');
+            statusBadge.classList.add('online');
+            statusText.textContent = '통신 중';
             btnConnectUSB.style.display = 'none';
-            log('Pico와 뽀용뽀용하게 연결 완료!', 'success');
+            log('Pico USB 시리얼 연결 성공', 'success');
             
             readLoop();
         } catch (err) {
@@ -55,17 +64,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) {
-                        log('포트가 닫혔어!', 'system');
+                        log('포트가 닫혔습니다.', 'system');
                         break;
                     }
 
-                    // 원시 바이트를 텍스트로 직접 변환
                     const chunk = decoder.decode(value, { stream: true });
                     buffer += chunk;
 
-                    // 줄바꿈 기준으로 분리
                     let lines = buffer.split('\n');
-                    buffer = lines.pop(); // 아직 완성되지 않은 마지막 줄은 버퍼에 보관
+                    buffer = lines.pop();
 
                     for (let line of lines) {
                         line = line.trim();
@@ -76,10 +83,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (data.roll !== undefined && data.pitch !== undefined) {
                                 handleSensorData(data.roll, data.pitch);
                             } else {
-                                log(`수신됨: ${line}`, 'system');
+                                log(`데이터 수신: ${line}`, 'system');
                             }
                         } catch (e) {
-                            if (line.includes("Error") || line.includes("Traceback")) {
+                            if (line.includes('Error') || line.includes('Traceback')) {
                                 log(`Pico 에러: ${line}`, 'err');
                             } else {
                                 log(`수신: ${line}`, 'system');
@@ -95,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 타겟(목표) 각도
+    // 타겟 각도
     let targetRoll = 0;
     let targetPitch = 0;
 
@@ -107,116 +114,124 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // 3D 가상 로봇 팔 (Three.js) 초기화 로직
+    // 3D 로봇 팔 (Three.js)
     // ==========================================
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
 
-    // 카메라
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
-    camera.position.set(15, 15, 20);
+    camera.position.set(14, 12, 18);
     camera.lookAt(0, 5, 0);
 
-    // 렌더러
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setClearColor(0x000000, 0); // 배경 투명하게 (CSS 그라데이션 보임)
+    renderer.setClearColor(0x000000, 0);
+    renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // 조명 (화사하게)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    // 조명
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffdfba, 0.6);
-    dirLight.position.set(10, 20, 10);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    dirLight.position.set(8, 20, 12);
+    dirLight.castShadow = true;
     scene.add(dirLight);
+    const fillLight = new THREE.DirectionalLight(0xe8f0fe, 0.3);
+    fillLight.position.set(-10, 5, -5);
+    scene.add(fillLight);
 
-    // 뽀용뽀용 매터리얼 (장난감 같은 파스텔톤 컬러)
-    const matBase = new THREE.MeshPhongMaterial({ color: 0xa3c4f3 });
-    const matArm1 = new THREE.MeshPhongMaterial({ color: 0xffcbf2 });
-    const matArm2 = new THREE.MeshPhongMaterial({ color: 0xfcf6bd });
-    const matJoint = new THREE.MeshPhongMaterial({ color: 0xffb5a7 });
-    const matGripper = new THREE.MeshPhongMaterial({ color: 0xd0f4de });
+    // 머티리얼 (구글 블루/그레이 톤)
+    const matBase = new THREE.MeshStandardMaterial({ color: 0x5f6368, roughness: 0.4, metalness: 0.6 });
+    const matArm = new THREE.MeshStandardMaterial({ color: 0xdadce0, roughness: 0.3, metalness: 0.5 });
+    const matJoint = new THREE.MeshStandardMaterial({ color: 0x1a73e8, roughness: 0.25, metalness: 0.7 });
+    const matGripper = new THREE.MeshStandardMaterial({ color: 0x1e8e3e, roughness: 0.3, metalness: 0.5 });
 
-    // --- 3D 계층 구조 생성 ---
-    
-    // 1. Base (좌우 회전)
+    // Base
     const baseGroup = new THREE.Group();
     scene.add(baseGroup);
-    const baseMesh = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.5, 2, 32), matBase);
-    baseMesh.position.y = 1;
+    const baseMesh = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.8, 1.8, 32), matBase);
+    baseMesh.position.y = 0.9;
+    baseMesh.receiveShadow = true;
     baseGroup.add(baseMesh);
 
-    // 2. Shoulder (어깨)
+    // Shoulder
     const shoulderGroup = new THREE.Group();
-    shoulderGroup.position.y = 2; 
+    shoulderGroup.position.y = 1.8;
     baseGroup.add(shoulderGroup);
     
-    const shoulderJoint = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), matJoint);
+    const shoulderJoint = new THREE.Mesh(new THREE.SphereGeometry(1.3, 32, 32), matJoint);
     shoulderGroup.add(shoulderJoint);
     
-    const bicepMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 5, 32), matArm1);
-    bicepMesh.position.y = 2.5;
+    const bicepMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 5.5, 32), matArm);
+    bicepMesh.position.y = 2.75;
+    bicepMesh.castShadow = true;
     shoulderGroup.add(bicepMesh);
 
-    // 3. Elbow (팔꿈치)
+    // Elbow
     const elbowGroup = new THREE.Group();
-    elbowGroup.position.y = 5;
+    elbowGroup.position.y = 5.5;
     shoulderGroup.add(elbowGroup);
     
-    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), matJoint);
+    const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(1.0, 32, 32), matJoint);
     elbowGroup.add(elbowJoint);
     
-    const forearmMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 4, 32), matArm2);
-    forearmMesh.position.y = 2;
+    const forearmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 4.5, 32), matArm);
+    forearmMesh.position.y = 2.25;
+    forearmMesh.castShadow = true;
     elbowGroup.add(forearmMesh);
 
-    // 4. Gripper (그리퍼)
+    // Gripper
     const gripperGroup = new THREE.Group();
-    gripperGroup.position.y = 4;
+    gripperGroup.position.y = 4.5;
     elbowGroup.add(gripperGroup);
     
-    const wristJoint = new THREE.Mesh(new THREE.SphereGeometry(1.0, 32, 32), matJoint);
+    const wristJoint = new THREE.Mesh(new THREE.SphereGeometry(0.8, 32, 32), matJoint);
     gripperGroup.add(wristJoint);
 
-    // 귀여운 둥근 그리퍼
-    const gripperMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 1, 32), matGripper);
+    const gripperMesh = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 0.8), matGripper);
     gripperMesh.position.y = 1;
-    gripperMesh.rotation.x = Math.PI / 2;
     gripperGroup.add(gripperMesh);
 
-    // 바닥 그리드 (귀엽게 연한 색상)
-    const gridHelper = new THREE.GridHelper(30, 30, 0xffcbf2, 0xf8edeb);
+    const jawL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.2, 0.7), matGripper);
+    jawL.position.set(-0.9, 1.7, 0);
+    gripperGroup.add(jawL);
+    const jawR = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.2, 0.7), matGripper);
+    jawR.position.set(0.9, 1.7, 0);
+    gripperGroup.add(jawR);
+
+    // 바닥 그리드
+    const gridHelper = new THREE.GridHelper(30, 30, 0xdadce0, 0xf1f3f4);
     scene.add(gridHelper);
 
     // 보간용 현재 각도
     let currentRoll = 0;
     let currentPitch = 0;
     
-    function lerp(start, end, amt) {
-        return (1 - amt) * start + amt * end;
+    function lerp(a, b, t) {
+        return a + (b - a) * t;
     }
 
     // 렌더링 루프
     function animate() {
         requestAnimationFrame(animate);
         
-        // 스무딩 (Lerp) 적용하여 부드럽게 이동 (센서 튀는 현상 방지)
-        currentRoll = lerp(currentRoll, targetRoll, 0.1);
-        currentPitch = lerp(currentPitch, targetPitch, 0.1);
+        currentRoll = lerp(currentRoll, targetRoll, 0.08);
+        currentPitch = lerp(currentPitch, targetPitch, 0.08);
 
-        // 매핑: Roll -> Base 좌우 회전 (Y축)
+        // Roll -> Base 좌우 회전
         baseGroup.rotation.y = -(currentRoll * Math.PI / 180);
         
-        // 매핑: Pitch -> 어깨와 팔꿈치 연동 (Z축)
+        // Pitch -> Shoulder + Elbow 연동
         const pRad = currentPitch * Math.PI / 180;
-        shoulderGroup.rotation.z = -pRad * 0.8; 
-        elbowGroup.rotation.z = -pRad * 0.5; // 팔꿈치도 연동되어 같이 굽혀짐
+        shoulderGroup.rotation.z = -pRad * 0.7;
+        elbowGroup.rotation.z = -pRad * 0.5;
 
         renderer.render(scene, camera);
     }
     animate();
 
     window.addEventListener('resize', () => {
+        if (!container.clientWidth || !container.clientHeight) return;
         camera.aspect = container.clientWidth / container.clientHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(container.clientWidth, container.clientHeight);
