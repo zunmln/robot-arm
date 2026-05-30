@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로봇 팔 원격 제어 대시보드</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+</head>
+<body>
+    <div class="app-container">
+        <!-- 상단 헤더 -->
+        <header class="header">
+            <div class="header-title">
+                <h1>⚙️ ROBO-ARM CONTROL CENTER</h1>
+                <p class="subtitle">5-DOF 지능형 로봇 팔 제어 시스템</p>
+            </div>
+            <div class="connection-status">
+                <span class="status-indicator offline" id="statusDot"></span>
+                <span id="statusText">하드웨어 연결 대기 중...</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- 좌측: 관절 슬라이더 제어 패널 -->
+            <section class="panel control-panel">
+                <h2>관절 제어 (Joint Control)</h2>
+                
+                <div class="joint-control">
+                    <div class="joint-header">
+                        <label for="baseSlider">Base (회전)</label>
+                        <span class="joint-value" id="baseVal">90°</span>
+                    </div>
+                    <input type="range" id="baseSlider" class="slider" min="0" max="180" value="90">
+                </div>
+
+                <div class="joint-control">
+                    <div class="joint-header">
+                        <label for="shoulderSlider">Shoulder (어깨)</label>
+                        <span class="joint-value" id="shoulderVal">90°</span>
+                    </div>
+                    <input type="range" id="shoulderSlider" class="slider" min="0" max="180" value="90">
+                </div>
+
+                <div class="joint-control">
+                    <div class="joint-header">
+                        <label for="elbowSlider">Elbow (팔꿈치)</label>
+                        <span class="joint-value" id="elbowVal">90°</span>
+                    </div>
+                    <input type="range" id="elbowSlider" class="slider" min="0" max="180" value="90">
+                </div>
+
+                <div class="joint-control">
+                    <div class="joint-header">
+                        <label for="wristSlider">Wrist (손목)</label>
+                        <span class="joint-value" id="wristVal">90°</span>
+                    </div>
+                    <input type="range" id="wristSlider" class="slider" min="0" max="180" value="90">
+                </div>
+
+                <div class="joint-control gripper-control">
+                    <div class="joint-header">
+                        <label for="gripperSlider">Gripper (그리퍼)</label>
+                        <span class="joint-value" id="gripperVal">50%</span>
+                    </div>
+                    <input type="range" id="gripperSlider" class="slider slider-accent" min="0" max="100" value="50">
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-warning" id="btnHome">초기 위치 (Home)</button>
+                    <button class="btn btn-danger" id="btnStop">비상 정지 (E-STOP)</button>
+                </div>
+            </section>
+
+            <!-- 우측: 모션 시퀀스 및 콘솔 패널 -->
+            <div class="right-column">
+                <section class="panel sequence-panel">
+                    <h2>동작 저장 및 재생 (Motion Sequence)</h2>
+                    <p class="help-text">현재 관절의 위치를 기억하고 연속으로 재생할 수 있습니다.</p>
+                    
+                    <div class="sequence-controls">
+                        <button class="btn btn-primary" id="btnSavePos">현재 위치 저장 📌</button>
+                        <button class="btn btn-success" id="btnPlaySeq">저장된 동작 재생 ▶️</button>
+                        <button class="btn btn-outline" id="btnClearSeq">초기화</button>
+                    </div>
+
+                    <ul class="sequence-list" id="sequenceList">
+                        <!-- 저장된 시퀀스가 여기에 추가됨 -->
+                    </ul>
+                </section>
+
+                <section class="panel console-panel">
+                    <h2>시스템 콘솔 (System Console)</h2>
+                    <div class="console-output" id="consoleOutput">
+                        <div class="log system">시스템 초기화 완료. 통신 대기 중...</div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
