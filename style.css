@@ -208,6 +208,25 @@ body {
 
 .sequence-list li span { color: var(--text-muted); }
 
+/* Simulator */
+.simulator-panel {
+    padding: 15px 24px;
+}
+
+#canvas-container {
+    width: 100%;
+    height: 300px;
+    background-color: #000;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+}
+#canvas-container:active {
+    cursor: grabbing;
+}
+
 /* Console */
 .console-panel {
     flex: 1;
